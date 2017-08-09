@@ -1,0 +1,206 @@
+#!/usr/bin/perl
+
+# this software is licensed under the GPL 3.0 license (at your option) any later version (see POD documentation at the bottom of this file for details)
+
+use strict;
+use warnings;
+use Getopt::Long;
+use Pod::Usage;
+use JFR::Fasta;
+use Data::Dumper;
+
+our $VERSION = 0.04;
+
+MAIN: {
+    my $rh_opts = process_options();
+    my $ra_files = get_files($rh_opts);
+    my ($ra_seqs,$rh_ids) = get_seqs($ra_files);
+    print_concat($ra_seqs,$rh_ids);
+    if ($rh_opts->{'raxpartition'}) {
+        print_raxpart_file($ra_seqs,$rh_opts->{'raxpartition'});
+    }
+    if ($rh_opts->{'nexpartition'}) {
+        print_nexpart_file($ra_seqs,$rh_opts->{'nexpartition'});
+    }
+}
+
+sub print_nexpart_file {
+    my $ra_seqs = shift;
+    my $out = shift;
+
+    open OUT, ">$out" or die "cannot open >$out:$!";
+    my $id = 0;
+    my $pos = 1;
+    print OUT "#nexus\nbegin sets;\n";
+    foreach my $rh_s (@{$ra_seqs}) {
+        $id++;
+        my $len = get_seq_len($rh_s);
+        my $end = $pos + $len - 1;
+        print OUT "    charset part${id} = $pos-$end;\n";
+        $pos += $len;
+    }
+    print OUT "end;";
+    close OUT;
+}
+
+sub print_raxpart_file {
+    my $ra_seqs = shift;
+    my $out = shift;
+
+    open OUT, ">$out" or die "cannot open >$out:$!";
+    my $id = 0;
+    my $pos = 1;
+    foreach my $rh_s (@{$ra_seqs}) {
+        $id++;
+        my $len = get_seq_len($rh_s);
+        my $end = $pos + $len - 1;
+        print OUT "DNA, p${id} = $pos-$end\n";
+        $pos += $len;
+    }
+    close OUT;
+}
+
+sub print_concat {
+    my $ra_seqs = shift;
+    my $rh_ids = shift;
+
+    foreach my $id (sort keys %{$rh_ids}) {
+        print ">$id\n";
+        foreach my $rh_s (@{$ra_seqs}) {
+            my $len = get_seq_len($rh_s);
+            my $dashes = '-' x $len;
+            if ($rh_s->{$id}) {
+                print $rh_s->{$id};
+            } else {
+                print $dashes;
+            }
+        } 
+        print "\n";
+    }
+}
+
+sub get_seq_len {
+    my $rh_s = shift;
+    my @seqs = values %{$rh_s};
+    my $len = length($seqs[0]); 
+    return $len;
+}
+
+sub get_seqs {
+    my $ra_files = shift;
+    my @seqs = ();
+    my %ids = ();
+    my $count = 0;
+    foreach my $f (@{$ra_files}) {
+        my $fp = JFR::Fasta->new($f);
+        my $len = 0;
+        my %fileseqs = ();
+        while (my $rec = $fp->get_record()) {
+            my $id = JFR::Fasta->get_def_w_o_gt($rec->{'def'});
+            $ids{$id}++;
+            $fileseqs{$id} = $rec->{'seq'};
+            $count++;
+            if ($len && $len != length($rec->{'seq'})) {
+                die "seqs in each fa must be same length. unequal in $f";
+            }
+        }
+        push @seqs, \%fileseqs;
+    }
+    die "no shared ids in fasta files\n" if ($count == scalar(keys(%ids)));
+    return \@seqs, \%ids;
+}
+
+sub get_files {
+    my $rh_o = shift;
+    my @files = ();
+    if ($rh_o->{'fasta'}) {
+        foreach my $f (@{$rh_o->{'fasta'}}) {
+            push @files, $f;
+        }
+        my $num = scalar @files;
+        die "need more than $num --fasta" unless ($num > 1);
+    } elsif ($rh_o->{'dir'}) {
+        opendir(my $dh, $rh_o->{'dir'}) || die "cant opendir $rh_o->{'dir'}:$!";
+        my @filenames = grep { !/^\./ && -f "$rh_o->{'dir'}/$_" } readdir($dh);
+        closedir $dh;
+        foreach my $fn (@filenames) {
+            push @files, "$rh_o->{'dir'}/$fn";
+        }
+        my $num = scalar @files;
+        die "need more than $num files in $rh_o->{'dir'}" unless ($num > 1);
+    } else {
+        die "unexpected";
+    }
+    return \@files;
+}
+
+sub process_options {
+    my $rh_opts = {'dir' => ''};
+    my @fasta = ();
+    my $res = Getopt::Long::GetOptions(
+                               "dir=s" => \$rh_opts->{'dir'},
+                               "fasta=s" => \@fasta,
+                               "raxpartition=s" => \$rh_opts->{'raxpartition'},
+                               "nexpartition=s" => \$rh_opts->{'nexpartition'},
+                               "version" => \$rh_opts->{'version'},
+                               "v" => \$rh_opts->{'version'},
+                               "h" => \$rh_opts->{'help'},
+                               "help" => \$rh_opts->{'help'}
+                                     );
+    $rh_opts->{'fasta'} = \@fasta if (@fasta);
+    die "fasta2phylomatrix version $VERSION\n" if ($rh_opts->{'v'} || $rh_opts->{'version'});
+    pod2usage({-exitval => 0, -verbose => 2}) if($rh_opts->{'help'});
+    
+    unless ( $rh_opts->{'dir'} || $rh_opts->{'fasta'} ) {
+        warn "--dir or --fasta are necassary options\n";
+        usage();
+    } 
+    if ($rh_opts->{'dir'} && $rh_opts->{'fasta'}) {
+        warn "don't use both of these options: --dir --fasta";
+        usage();
+    }
+    return $rh_opts;
+}
+
+sub usage {
+    print "fasta2phylomatrix  {--fasta=FILE1 --fasta=FILE2 ... or --dir=DIR_OF_FASTAFILES} [--nexpartition=OUT_PARTITION_FILE] [--raxpartition=OUT_PARTITION_FILE] [--version] [--help]\n";
+    exit;
+}
+
+__END__
+
+=head1 NAME
+
+B<fasta2phylomatrix> - Generate a concatenated matrix from individual alignments
+
+=head1 AUTHOR
+
+Joseph Ryan <joseph.ryan@whitney.ufl.edu>
+
+=head1 SYNOPSIS 
+
+fasta2phylomatrix  {--fasta=FILE1 --fasta=FILE2 ... or --dir=DIR_OF_FASTAFILES} [--raxpartition=OUT_PARTITION_FILE] [--nexpartition=OUT_PARTITION_FILE] [--version] [--help]
+
+=head1 BUGS
+
+Please report them to the author.
+
+=head1 COPYRIGHT
+
+Copyright (C) 2017, Joseph Ryan
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut
+
