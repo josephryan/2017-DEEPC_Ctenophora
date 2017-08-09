@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+# this script requires JFR::Fasta
+# https://github.com/josephryan/JFR-PerlModules
+
+use strict;
+use warnings;
+use JFR::Fasta;
+
+MAIN: {
+    my $fa = $ARGV[0] or die "usage: $0 FASTA\n";
+    my $fp = JFR::Fasta->new($fa);
+    open OUT, ">$fa.res" or die "cannot open >$fa.res:$!";
+    while (my $rec = $fp->get_record()) {
+        $rec->{'seq'} =~ s/ //g;
+        next if ($rec->{'seq'} =~ m/^\-+$/);
+        print OUT "$rec->{'def'}\n$rec->{'seq'}\n";
+    }
+}
