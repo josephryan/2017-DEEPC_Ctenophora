@@ -1,5 +1,19 @@
 # 2017-DEEPC_Ctenophora
 
+### phylotocol
+
+document laying out planned analyses.  
+see https://github.com/josephryan/phylotocol for more info:
+
+### scripts
+
+scripts mentioned in phylotocol used for these analyses
+
+### hyphy_batchfiles
+
+batch files used for hyphy analyses
+
+
 # COPYRIGHT AND LICENSE
 
 Copyright (C) 2017 Ryan Lab
