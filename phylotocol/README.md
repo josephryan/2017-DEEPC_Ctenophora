@@ -103,7 +103,7 @@ python trees_from_MSA.py [dir_w_orthofinder_results] > tfm.out 2> tfm.err
 2.7.1 Concatenated matrix, Maximum Likelihood: estimate a bootstrapped (1000 ultrafast replicates) species phylogeny in IQtree v1.5.5 using the concatenated dataset. We will use the flag -m TEST to find best partition scheme and estimate the tree. The partition file will be created with the script ```fasta2phylomatrix```, which is available in this respository.
 
 ```
-iqtree-omp –s [infile] –pre [outfile_prefix] –nt [#threads] –q [partition file] –m TEST –bb 1000 –bspec GENESITE > iqo.out 2> iqo.err
+iqtree-omp –nt [#threads] –s [infile] –pre [outfile_prefix] –spp [partition file] –m TEST –bb 1000 –bspec GENESITE > iqo.out 2> iqo.err
 ```
 
 2.7.2 Concatenated matrix, Bayesian inference: estimate species phylogeny in PhyloBayes-MPI v1.7 using the concatenated dataset. If PhyloBayes is not close to convergence after 1 month runtime, we will use the jackknife approach described in Simion et al. 2017.  
@@ -119,13 +119,13 @@ bpcomp -x [burnin] [sample_every_x_number_of_trees] <chain1> <chain2> > bpcomp.o
 > i) Generate individual maximum-likelihood gene trees in IQtree. 
 
 ```
-iqtree-omp –s [infile] –pre [prefix_for_outfiles] –nt [# of cores] –q [partition file] –m MFP+MERGE –bb 1000 –bspec GENESITE > iq.out 2> iq.err
+iqtree-omp –nt AUTO –s [infile] –pre [prefix_for_outfiles] –m MFP+MERGE –bb 1000 > iq.out 2> iq.err
 ```
 
 > ii) ASTRAL-II constrains the search space to those species trees that derive their bipartitions from the input gene trees
 
 ```
-java -jar astral.jar -i [gene_trees_file] -o [output_file] > astral.out 2> astral.err
+java -Xmx1000000M -jar astral.jar -i [gene_trees_file] -o [output_file] > astral.out 2> astral.err
 ```
 
 > iii) ASTRID uses a distance matrix generated from the input gene trees to estimate the species tree and is robust to missing data
