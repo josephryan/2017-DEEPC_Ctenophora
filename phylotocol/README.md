@@ -106,11 +106,19 @@ python trees_from_MSA.py [dir_w_orthofinder_results] > tfm.out 2> tfm.err
 iqtree-omp –nt [#threads] –s [infile] –pre [outfile_prefix] –spp [partition file] –m TEST –bb 1000 –bspec GENESITE > iqo.out 2> iqo.err
 ```
 
-2.7.2 Concatenated matrix, Bayesian inference: estimate species phylogeny in PhyloBayes-MPI v1.7 using the concatenated dataset. If PhyloBayes is not close to convergence after 1 month runtime, we will use the jackknife approach described in Simion et al. 2017.  
+2.7.2 Concatenated matrix, Bayesian inference: estimate species phylogeny in PhyloBayes-MPI v1.7 using the concatenated dataset. If PhyloBayes is not close to convergence after 1 month runtime, we will use the jackknife approach described in Simion et al. 2017. \*\*PhyloBayes-MPI runs were started on 08/21/17, soft stopped on 09/08/17 due to Hurrican Irma, and restarted on 09/13/17. On 09/27/17 after 32 days of running, we stopped the runs because they had not converged.  
 
 ```
 mpirun -n [# threads] pb_mpi -d [infile.phy] -cat -gtr chain1 > pb1.out 2> pb1.err
 mpirun -n [# threads] pb_mpi -d [infile.phy] -cat -gtr chain2 > pb2.out 2> pb2.err
+bpcomp -x [burnin] [sample_every_x_number_of_trees] <chain1> <chain2> > bpcomp.out 2> bpcomp.err
+```
+
+2.7.2a Concatenated matrix, Bayesian inference, jackknife approach: we used the script ```jackknife.pl``` (available in this repository) to randomly sample 430 of the total 944 alignments. Concatenation was performed with the script ```catfasta2phyml``` available here: https://github.com/nylander/catfasta2phyml. We repeated this procedure 100 times. We ran two phylobayes chains for each sample using the following commands:
+
+```
+pb -d [infile.phy] -cat -gtr chain1 > pb1.out 2> pb1.err
+pb -d [infile.phy] -cat -gtr chain2 > pb2.out 2> pb2.err
 bpcomp -x [burnin] [sample_every_x_number_of_trees] <chain1> <chain2> > bpcomp.out 2> bpcomp.err
 ```
 
